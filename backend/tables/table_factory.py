@@ -3,20 +3,24 @@ from tables.Alignments import *
 from tables.Races import *
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 
+
+#A factory pattern to create instances for the table
 class Factory(object):
 
+    #Creates a race instance
     def create_race(self, name : str, alignment : int) -> DeclarativeMeta:
         race : DeclarativeMeta = Races()
         race.name = name
         race.alignment_id = alignment
         return race
 
+    #Creates an alignment instance
     def create_alignment(self, name : str) -> DeclarativeMeta:
         alignment : DeclarativeMeta = Alignments()
         alignment.name = name
         return alignment
 
-
+    #Creates a demon instance
     def create_demon(self,name : str, level : int, alignment : int, race : int) -> DeclarativeMeta:
         demon : DeclarativeMeta = Demons()
         demon.name = name
@@ -25,7 +29,11 @@ class Factory(object):
         demon.race_id = race
         return demon
 
+    #The function the API calls to create an instance of any table.
+    #All parameters are contained in a dictionary(easy for the API to handle) since not all instances need the same values in their constructors
     def create_element(self, data : dict) -> DeclarativeMeta:
+
+        #Tries to call any of the above direct implementations based on the table name
         try:
             table_name = data["table_name"]
             match table_name.lower():
@@ -40,8 +48,3 @@ class Factory(object):
 
         except Exception as e:
             print(e)
-
-if __name__ == "__main__":
-    factory = Factory()
-    demon_data = {"name": "test"}
-    facotry.create_element("demon",demon_data)

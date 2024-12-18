@@ -17,20 +17,25 @@ class SQL_Manager(object):
         return cls._instance
 
     #Creates the manager and initializes the connection
+    _connected : bool = False
     def __init__(self):
-        self.engine_uri = f"mysql+pymysql://root:SPAC-SQLBOI2024@127.0.0.1/SMT"
-        engine = create_engine(self.engine_uri)
-        self.metadata = create_tables(MetaData())
-        self.metadata.create_all(engine)
-        Session = sessionmaker(bind = create_engine(self.engine_uri))
-        self.session = Session()
-        self.engine = engine
-        self.create_procedures()
+        if not self._connected:
+            self.engine_uri = f"mysql+pymysql://root:SPAC-SQLBOI2024@127.0.0.1/SMT"
+            engine = create_engine(self.engine_uri)
+            self.metadata = create_tables(MetaData())
+            self.metadata.create_all(engine)
+            Session = sessionmaker(bind = create_engine(self.engine_uri))
+            self.session = Session()
+            self.engine = engine
+            self.create_procedures()
+            self._connected = True
 
+    #Adds an item to the database
     def add_item(self, item : DeclarativeMeta):
         self.session.add(item)
         self.session.commit()
 
+    #Gets the query associated with the demon table
     def get_demon_query(self,parametor : str, item_value : str):
         match parametor.lower():
             case "id":
@@ -46,6 +51,7 @@ class SQL_Manager(object):
             case _:
                 raise Exception("Parametor not recognized for demons")
 
+    #Gets the query associated with the alignment table
     def get_alignment_query(self,parametor : str, item_value : str):
         match parametor.lower():
             case "id":
@@ -55,6 +61,7 @@ class SQL_Manager(object):
             case _:
                 raise Exception("Parametor not recognized for aligments")
 
+    #Gets the query associated with the race table
     def get_race_query(self, parametor : str, item_value : str):
         match parametor.lower():
             case "id":
@@ -64,8 +71,10 @@ class SQL_Manager(object):
             case "alignment_id":
                 return self.session.query(Races).filter(Races.alignment_id == int(item_value))
 
+    #Single call to get a query for a table
     def get_query(self, table_name : str, parametor : str, item_value : str):
         try:
+            #Checks which table the query is for
             match table_name.lower():
                 case "demon" | "demons":
                     return self.get_demon_query(parametor,item_value)
@@ -77,23 +86,32 @@ class SQL_Manager(object):
                     raise Exception("Table name not recognized")
         except Exception as e:
             print(e)
-
+    
+    #Gets items from the a table with the name table_name.
     def get_item(self,table_name : str,parametor : str,item_value : str):
+        #Gets the query
         item = self.get_query(table_name,parametor,item_value)
+
+        #Gets all elements in the query
         return item.all()
 
+    #Function to do multiple querries on one go. The kwargs must be on the form kwarg_1 = (table,parametor,item_value)
     def multi_query(self,**kwargs):
         queries = []
 
+        #Goes trhu all item in the kwargs dir
         for key in kwargs.keys():
             table, parametor, item_value = kwargs[key]
             queries.append(self.get_query(table,parametor, item_value))
-
+        
+        #The item can be seen as all elements that fullfill all queries i.e you want to find all demons that are level 12 and of a specific race.
+        #Thus the final element is the intersection between all demons with level of 12 and all demons of a specific race
         item = queries[0]
         for i in range(1,len(queries)):
             item = item.intersect(queries[i])
         return item.all()
 
+    #Gets a table
     def get_table(self, table_name : str):
         try:
             match table_name.lower():
@@ -110,6 +128,7 @@ class SQL_Manager(object):
         except Exception as e:
             print(e)
 
+    #Gets the keys of a specific table
     def get_keys(self,table_name : str):
         try:
             match table_name.lower():
@@ -124,6 +143,7 @@ class SQL_Manager(object):
         except Exception as e:
             print(e)
 
+    #Fucntion to update the race table. The item value is the query item we want to update
     def update_race(self, item, parametor: str, value : str):
         match parametor.lower():
             case "name":
@@ -134,6 +154,7 @@ class SQL_Manager(object):
                 raise Exception("Parametor not recognized for race")
         self.session.commit()
 
+    #Fucntion to update the alignment table. The item value is the query item we want to update
     def update_alignment(self, item, parametor: str, value : str):
         match parametor.lower():
             case "name":
@@ -142,6 +163,7 @@ class SQL_Manager(object):
                 raise Exception("Parametor not recognized for alignment")
         self.session.commit()
 
+    #Fucntion to update the demon table. The item value is the query item we want to update
     def update_demon(self,item,parametor : str, value):
         match parametor.lower():
             case "name":
@@ -157,13 +179,11 @@ class SQL_Manager(object):
             case _:
                 raise Exception("Parametor not recognized for demons")
         self.session.commit()
-
-    def delete_item(self,table_name : str, parametor : str, value : str):
-        entry = self.get_query(table_name,parametor,value)
-        entry.delete()
-        self.session.commit()
-
+    
+    #Genaric function to update a table
     def update_item(self, table_name : str, parametor : str, item_value : str, update_parametor : str, update_value):
+
+        #Gets an item where the item_value matches the value of the column with name parameter
         item = self.get_query(table_name,parametor,item_value)
         try:
             match table_name.lower():
@@ -180,7 +200,16 @@ class SQL_Manager(object):
         except Exception as e:
             print(e)
 
+    #Function to delete items from the database
+    def delete_item(self,table_name : str, parametor : str, value : str):
+        entry = self.get_query(table_name,parametor,value)
+        entry.delete()
+        self.session.commit()
+
+    #To get image I use some sub queries and specific functions on the column like SUBSTRING to make it less messy these queries are made as a stored procedure
     def create_procedures(self):
+
+        #Reads from the stored_procedures file found in utils folder
         file_name = os.path.join("utils","stored_procedures.sql")
         with open(file_name, 'r') as f:
             queries = f.read().split("--#--new--#")
@@ -188,23 +217,38 @@ class SQL_Manager(object):
                 self.session.execute(sqlalchemy.text(query))
             self.session.commit()
 
+    #Function to get the image length. Uses the stored procedures
     def get_image_length(self,demon_id : str):
         return self.session.execute(sqlalchemy.text(f"CALL get_image_length({int(demon_id)},@length)")).mappings().all()[0]['LENGTH(image)']
 
 
+    #Function to get the image in chonks. Uses the stored procedures
     def get_chonked_image(self,demon_id : str):
+
+        #Gets the length of the image
         length = self.get_image_length(demon_id)
+
+        #The size of the chunk is 255 char
         chonk_size = 255
+
+        #Defines the number of chonks the image has
         chonks = int(length/chonk_size)
+
+        #The lenght of the image is probably not a multiple of 255, so we define the rest chonk size if any
         rest = length % chonk_size 
         i = 0
+        
+        #Creates an empy string for the image
         image = ""
+
+        #SQL substrings start at position 1 and not 0
         index = 1
         while i < chonks:
             image += self.session.execute(sqlalchemy.text(f"CALL get_chonked_image({int(demon_id)},{index},{chonk_size},@im)")).mappings().all()[0]['SUBSTRING(image,start_index,end_index)']
             index += chonk_size
             i+=1
 
+        #Gets the rest of the image if it is not a multiple of 255. The sql return an empty string if end_index = 0 aka the image is a multiple of 255
         image += self.session.execute(sqlalchemy.text(f"CALL get_chonked_image({int(demon_id)},{index},{rest},@im)")).mappings().all()[0]['SUBSTRING(image,start_index,end_index)']
 
         return image
