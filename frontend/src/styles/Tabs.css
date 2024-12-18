@@ -1,0 +1,46 @@
+.TabsContainer{
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	width: 800px;
+	height: auto;
+  	background: rgba(0,0,0,.5);
+	margin: 100px auto;
+	word-break: break-all;
+	border: 1px solid rgba(0,0,0,.274);
+}
+
+.TabsCategories{
+	display:flex;
+}
+
+.Tabs{
+	color : #FFFFFF;
+	padding: 15px;
+	text-align: center;
+	width: 50%;
+	background: rgba(128,128,128,.0750);
+	cursor: pointer;
+	box-sizing: content-box;
+	position: relative;
+	outline: none;
+}
+
+
+.Tabs:not(:last-child){
+	border-right:1px solid #FFFFFF;
+}
+
+.active-tab{
+	background-image: linear-gradient(to top right,#0cc2e7,#00d4ff);
+	color: #FFFFFF;
+}
+
+.OutPut{
+	background-image: linear-gradient(to top right,#1d5d9a,#0cc2e7);
+	flex-grow: 1;
+}
+
+.shouldBlur{
+	backdrop-filter: blur(5px);
+}
